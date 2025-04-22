@@ -1,0 +1,308 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <string.h>
+#include <ctype.h>
+
+#define MAX_LEN 500
+#define ALPHABET_SIZE 26
+#define DIGIT_SIZE 10
+#define MIXED_SIZE (ALPHABET_SIZE + DIGIT_SIZE)
+
+
+//to save mapping
+
+void saveMapping(const char mapping[MIXED_SIZE]) {
+    FILE *file = fopen("cipher_mapping.csv", "w");
+    if (file == NULL) {
+        printf("Error opening file!\n");
+        return;
+    }
+
+    fprintf(file, "Original,Substituted\n");
+    for (int i = 0; i < ALPHABET_SIZE; i++) {
+        fprintf(file, "%c,%c\n", 'A' + i, mapping[i]);
+    }
+    for (int i = 0; i < DIGIT_SIZE; i++) {
+        fprintf(file, "%d,%c\n", i, mapping[ALPHABET_SIZE + i]);
+    }
+
+    fclose(file);
+    printf("Mixed cipher mapping saved to cipher_mapping.csv\n");
+}
+
+
+int loadFromFile(char mapping[MIXED_SIZE]) {
+    FILE *file = fopen("cipher_mapping.csv", "r");
+    if (file == NULL) {
+        printf("Error: Mapping file not found.\n");
+        return 0;
+    }
+
+    char line[256];
+    fgets(line, sizeof(line), file);
+    while (fgets(line, sizeof(line), file)) {
+        char original, substituted;
+        sscanf(line, "%c,%c", &original, &substituted);
+        if (original >= 'A' && original <= 'Z') {
+            mapping[original - 'A'] = substituted;
+        } else if (original >= '0' && original <= '9') {
+            mapping[ALPHABET_SIZE + (original - '0')] = substituted;
+        }
+    }
+    fclose(file);
+    return 1;
+}
+
+void getUserMapping(char mapping[MIXED_SIZE], const char *plaintext) {
+    char temp_mapping[MIXED_SIZE];
+    for (int i = 0; i < ALPHABET_SIZE; i++) {
+        temp_mapping[i] = 0;
+    }
+    for (int i = 0; i < DIGIT_SIZE; i++) {
+        temp_mapping[ALPHABET_SIZE + i] = 0;
+    }
+
+    printf("Enter your custom monoalphabetic mixed cipher mapping:\n");
+    for (int i = 0; plaintext[i] != '\0'; i++) {
+        char ch = toupper(plaintext[i]);
+        if (isalpha(ch) || isdigit(ch)) {
+            char temp;
+            if (isalpha(ch)) {
+
+                if (temp_mapping[ch - 'A'] == 0) {
+                    printf("%c -> ", ch);
+                    scanf(" %c", &temp);
+                    temp = (isalpha(temp)) ? toupper(temp) : temp;
+
+
+                    int already_used = 0;
+                    for (int j = 0; j < ALPHABET_SIZE + DIGIT_SIZE; j++){
+                        if (temp_mapping[j] == temp){
+                            already_used = 1;
+                            break;
+                        }
+                    }
+                    if (already_used){
+
+
+                        continue;
+                    }
+
+                    mapping[ch - 'A'] = temp;
+                    temp_mapping[ch - 'A'] = temp;
+                }
+            } else {
+                if (temp_mapping[ALPHABET_SIZE + (ch - '0')] == 0) {
+                    printf("%c -> ", ch);
+                    scanf(" %c", &temp);
+
+
+                    int already_used = 0;
+                    for (int j = 0; j < ALPHABET_SIZE + DIGIT_SIZE; j++){
+                        if (temp_mapping[j] == temp){
+                            already_used = 1;
+                            break;
+                        }
+                    }
+                    if (already_used){
+
+                        continue;
+                    }
+
+                    mapping[ALPHABET_SIZE + (ch - '0')] = temp;
+                    temp_mapping[ALPHABET_SIZE + (ch - '0')] = temp;
+                }
+            }
+        }
+    }
+    getchar();
+}
+
+void generateRandomMixedMapping(char mapping[MIXED_SIZE]) {
+    char mixed[MIXED_SIZE];
+
+    for (int i = 0; i < MIXED_SIZE; i++) {
+        if (i < ALPHABET_SIZE) {
+            mixed[i] = 'A' + i;
+        } else {
+            mixed[i] = '0' + (i - ALPHABET_SIZE);
+        }
+    }
+
+    for (int i = MIXED_SIZE - 1; i > 0; i--) {
+        int j = rand() % (i + 1);
+        char temp = mixed[i];
+        mixed[i] = mixed[j];
+        mixed[j] = temp;
+    }
+
+    for (int i = 0; i < MIXED_SIZE; i++) {
+        mapping[i] = mixed[i];
+    }
+}
+
+void displayMapping(const char mapping[MIXED_SIZE]) {
+    printf("\nMixed Cipher Mapping:\n");
+    printf("Original -> Substituted\n");
+    for (int i = 0; i < ALPHABET_SIZE; i++) {
+        printf("%c -> %c\n", 'A' + i, mapping[i]);
+    }
+    for (int i = 0; i < DIGIT_SIZE; i++) {
+        printf("%d -> %c\n", i, mapping[ALPHABET_SIZE + i]);
+    }
+}
+
+void Encrypt() {
+    char mapping[MIXED_SIZE] = {0};
+    char plaintext[256];
+    char ciphertext[256];
+
+    printf("Enter plaintext: ");
+    fgets(plaintext, sizeof(plaintext), stdin);
+    plaintext[strcspn(plaintext, "\n")] = 0;
+
+    char choice;
+    printf("Do you want to use random mapping, custom mapping, or load from file? (r/c/l): ");
+    scanf(" %c", &choice);
+    getchar();
+
+    if (choice == 'c' || choice == 'C') {
+        getUserMapping(mapping, plaintext);
+    } else if (choice == 'l' || choice == 'L') {
+        if (!loadFromFile(mapping)) {
+            return;
+        }
+    } else {
+        generateRandomMixedMapping(mapping);
+    }
+
+    saveMapping(mapping);
+
+    int len = strlen(plaintext);
+    for (int i = 0; i < len; i++) {
+        if (plaintext[i] >= 'A' && plaintext[i] <= 'Z') {
+            ciphertext[i] = mapping[plaintext[i] - 'A'];
+        } else if (plaintext[i] >= 'a' && plaintext[i] <= 'z') {
+            ciphertext[i] = mapping[plaintext[i] - 'a'] + ('a' - 'A');
+        } else if (plaintext[i] >= '0' && plaintext[i] <= '9') {
+            ciphertext[i] = mapping[ALPHABET_SIZE + (plaintext[i] - '0')];
+        } else {
+            ciphertext[i] = plaintext[i];
+        }
+    }
+    ciphertext[len] = '\0';
+
+    printf("Encrypted text: %s\n", ciphertext);
+
+    if (choice == 'r' || choice == 'R') {
+        char seeMapping;
+        printf("Do you want to see the cipher mapping? (y/n): ");
+        scanf(" %c", &seeMapping);
+        getchar();
+        if (seeMapping == 'y' || seeMapping == 'Y') {
+            displayMapping(mapping);
+        }
+    }
+}
+
+void Decrypt() {
+    printf("Decryption\n");
+    printf("This is a user-interactive decryption....\n");
+    printf("The program may offer suggestions, but the decision to follow them ultimately lies with the user.\n\n");
+
+    char ciphertext[MAX_LEN];
+    char mapping[26] = {0};
+    char input, replacement;
+
+    printf("Enter ciphertext: ");
+    fgets(ciphertext, MAX_LEN, stdin);
+
+    for (int i = 0; ciphertext[i] != '\0'; i++) {
+        ciphertext[i] = toupper(ciphertext[i]);
+    }
+
+    while (1) {
+        printf("\nCurrent text: ");
+        for (int i = 0; ciphertext[i] != '\0'; i++) {
+            char ch = ciphertext[i];
+            if (isalpha(ch)) {
+                if (mapping[ch - 'A'] != 0)
+                    printf("%c", mapping[ch - 'A']);
+                else
+                    printf("%c", ch);
+            } else {
+                printf("%c", ch);
+            }
+        }
+        printf("\nLowercase--->decrypted letter\n");
+        printf("Uppercase--->yet to be decrypted\n");
+
+        printf("\nEnter a letter to replace (A-Z), or '0' to exit: ");
+        scanf(" %c", &input);
+        input = toupper(input);
+
+        if (input == '0') break;
+
+        if (!isalpha(input) || mapping[input - 'A'] != 0) {
+            printf("Invalid input or letter already substituted!\n");
+            continue;
+        }
+
+        printf("Enter substitution (a-z): ");
+        scanf(" %c", &replacement);
+        replacement = tolower(replacement);
+
+        if (!islower(replacement)) {
+            printf("Invalid substitution!\n");
+            continue;
+        }
+
+        mapping[input - 'A'] = replacement;
+    }
+
+    printf("\nFinal decrypted text: ");
+    for (int i = 0; ciphertext[i] != '\0'; i++) {
+        char ch = ciphertext[i];
+        if (isalpha(ch) && mapping[ch - 'A'] != 0)
+            printf("%c", mapping[ch - 'A']);
+        else
+            printf("%c", ch);
+    }
+    printf("\n");
+}
+
+int choosen_choice() {
+    printf("Substitution Cipher\n");
+    printf("1: Encryption\n");
+    printf("2: Decryption\n");
+    int ch;
+    printf("\nEnter your choice: ");
+    scanf("%d", &ch);
+    getchar();
+    return ch;
+}
+
+int main() {
+    srand(time(NULL));
+    char con = 'y';
+    do {
+        int choice = choosen_choice();
+
+        switch (choice) {
+            case 1:
+                Encrypt();
+                break;
+            case 2:
+                Decrypt();
+                break;
+            default:
+                printf("Enter a valid option\n");
+        }
+        printf("\nDo you want to continue? (y/n): ");
+        scanf(" %c", &con);
+        getchar();
+
+    } while (con == 'y' || con == 'Y');
+    return 0;
+}
